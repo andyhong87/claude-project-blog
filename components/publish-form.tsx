@@ -41,6 +41,7 @@ type State =
   | { status: "pending" }
   | { status: "done"; result: PublishResult }
   | { status: "unreachable" }
+  | { status: "serverError"; httpStatus: number }
   | { status: "missing" };
 
 export function PublishForm() {
@@ -60,15 +61,22 @@ export function PublishForm() {
     }
     setState({ status: "pending" });
 
+    let response: Response;
     try {
-      const response = await fetch("/api/publish", {
+      response = await fetch("/api/publish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password, category }),
       });
-      setState({ status: "done", result: await response.json() });
     } catch {
       setState({ status: "unreachable" });
+      return;
+    }
+    try {
+      setState({ status: "done", result: await response.json() });
+    } catch {
+      // 서버가 결과 대신 오류 페이지를 돌려준 경우(예: 500)는 연결 실패와 구분한다.
+      setState({ status: "serverError", httpStatus: response.status });
     }
   }
 
@@ -149,6 +157,16 @@ function Result({ state }: { state: State }) {
       <Alert variant="destructive">
         <AlertTitle>발행하지 못했습니다</AlertTitle>
         <AlertDescription>티스토리 아이디와 비밀번호를 입력하세요.</AlertDescription>
+      </Alert>
+    );
+  }
+  if (state.status === "serverError") {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>발행하지 못했습니다</AlertTitle>
+        <AlertDescription>
+          서버에서 오류가 났습니다 ({state.httpStatus}). 잠시 후 다시 시도하세요.
+        </AlertDescription>
       </Alert>
     );
   }
