@@ -105,6 +105,24 @@ describe("PublishForm", () => {
     expect(screen.queryByText(/\.env\.local/)).not.toBeInTheDocument();
   });
 
+  it("서버가 오류 페이지를 돌려주면 연결 실패가 아니라 서버 오류로 보여준다", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        json: async () => {
+          throw new SyntaxError("Unexpected token <");
+        },
+      })),
+    );
+    render(<PublishForm />);
+
+    await fillAndSubmit();
+
+    expect(await screen.findByText(/서버에서 오류가 났습니다 \(500\)/)).toBeInTheDocument();
+  });
+
   it("서버에 닿지 못해도 실패로 보여준다", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network"); }));
     render(<PublishForm />);
